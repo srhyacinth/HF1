@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HF1 Spring Review Game</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #1a1a2e;
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; width: 100%; max-width: 860px; padding: 20px; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; }
+
+  /* ── TITLE SCREEN ── */
+  #title-screen { gap: 20px; text-align: center; }
+  #title-screen h1 { font-size: 2.8rem; font-weight: 900; letter-spacing: 2px;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  #title-screen p { font-size: 1.1rem; color: #94a3b8; max-width: 500px; }
+  .subtitle { font-size: 1rem !important; color: #6b7280 !important; }
+
+  .start-btn {
+    margin-top: 10px;
+    padding: 18px 60px;
+    font-size: 1.4rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    border: none; border-radius: 50px; color: white;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 8px 30px rgba(124,58,237,0.4);
+    letter-spacing: 1px;
+  }
+  .start-btn:hover { transform: scale(1.05); box-shadow: 0 12px 40px rgba(124,58,237,0.6); }
+
+  .category-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+  .pill {
+    padding: 4px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: #cbd5e1;
+  }
+
+  /* ── GAME SCREEN ── */
+  #game-screen { gap: 0; }
+
+  .top-bar {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0 16px 0;
+  }
+  .q-counter { font-size: 0.95rem; color: #94a3b8; font-weight: 600; letter-spacing: 1px; }
+  .score-badge {
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    padding: 6px 18px; border-radius: 20px; font-weight: 800; font-size: 1rem;
+  }
+
+  /* Timer */
+  .timer-wrap { position: relative; width: 70px; height: 70px; }
+  .timer-svg { transform: rotate(-90deg); }
+  .timer-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 6; }
+  .timer-arc { fill: none; stroke: #a78bfa; stroke-width: 6; stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke 0.3s; }
+  .timer-text {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 900;
+  }
+
+  /* Category tag */
+  .cat-tag {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #a78bfa; margin-bottom: 8px;
+  }
+
+  /* Question box */
+  .question-box {
+    width: 100%; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 24px 28px;
+    text-align: center; font-size: 1.25rem; font-weight: 700; line-height: 1.5;
+    min-height: 100px; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 22px;
+  }
+
+  /* Answer grid */
+  .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; width: 100%; }
+
+  .ans-btn {
+    padding: 18px 16px;
+    border-radius: 12px; border: none;
+    font-size: 1rem; font-weight: 700; color: white;
+    cursor: pointer; transition: transform 0.12s, filter 0.12s;
+    display: flex; align-items: center; gap: 12px;
+    line-height: 1.35; text-align: left;
+  }
+  .ans-btn:hover:not(:disabled) { transform: scale(1.03); filter: brightness(1.1); }
+  .ans-btn:disabled { cursor: default; }
+
+  .ans-btn .shape {
+    width: 36px; height: 36px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 1.1rem;
+  }
+
+  .btn-red    { background: #e53e3e; }
+  .btn-blue   { background: #2563eb; }
+  .btn-yellow { background: #d97706; }
+  .btn-green  { background: #059669; }
+
+  .ans-btn.correct   { background: #22c55e !important; box-shadow: 0 0 20px rgba(34,197,94,0.5); }
+  .ans-btn.wrong     { opacity: 0.4; }
+  .ans-btn.highlight { box-shadow: 0 0 0 3px white; }
+
+  /* Feedback overlay */
+  .feedback {
+    display: none; position: fixed; inset: 0;
+    align-items: center; justify-content: center;
+    font-size: 4rem; z-index: 100;
+    animation: fadeInOut 0.8s ease forwards;
+  }
+  .feedback.show { display: flex; }
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: scale(0.5); }
+    30% { opacity: 1; transform: scale(1.2); }
+    70% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.8); }
+  }
+
+  /* Progress bar */
+  .progress-wrap { width: 100%; background: rgba(255,255,255,0.08); border-radius: 4px; height: 5px; margin-bottom: 12px; }
+  .progress-bar { height: 5px; border-radius: 4px; background: linear-gradient(90deg, #7c3aed, #2563eb); transition: width 0.4s; }
+
+  /* ── END SCREEN ── */
+  #end-screen { gap: 20px; text-align: center; }
+  #end-screen h2 { font-size: 2rem; font-weight: 900; }
+  .final-score { font-size: 4rem; font-weight: 900;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .grade-label { font-size: 1.2rem; color: #94a3b8; }
+
+  .results-grid {
+    width: 100%; max-height: 320px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 4px 2px;
+  }
+  .result-row {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 14px;
+    text-align: left; font-size: 0.88rem;
+  }
+  .result-row .ri { font-size: 1.2rem; flex-shrink: 0; }
+  .result-row .rq { flex: 1; color: #cbd5e1; }
+  .result-row .ra { font-weight: 700; color: #a78bfa; flex-shrink: 0; font-size: 0.82rem; }
+
+  .restart-btn {
+    padding: 14px 50px; font-size: 1.1rem; font-weight: 800;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    border: none; border-radius: 50px; color: white;
+    cursor: pointer; transition: transform 0.15s;
+    box-shadow: 0 6px 24px rgba(124,58,237,0.4);
+  }
+  .restart-btn:hover { transform: scale(1.05); }
+
+  .stars { font-size: 2rem; letter-spacing: 4px; }
+
+  /* Next button */
+  .next-btn {
+    display: none;
+    margin-top: 18px;
+    padding: 14px 50px;
+    font-size: 1.1rem; font-weight: 800;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    border: none; border-radius: 50px; color: white;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 6px 24px rgba(124,58,237,0.4);
+    letter-spacing: 1px;
+  }
+  .next-btn:hover { transform: scale(1.05); box-shadow: 0 10px 32px rgba(124,58,237,0.6); }
+  .next-btn.visible { display: block; }
+</style>
+</head>
+<body>
+
+<!-- TITLE SCREEN -->
+<div id="title-screen" class="screen active">
+  <h1>⚔️ HF1 REVIEW</h1>
+  <p>Spring Semester Final Exam Review Game<br>30 Questions · 20 Seconds Each</p>
+  <div class="category-pills">
+    <span class="pill">📅 Timelines</span>
+    <span class="pill">☪️ Islam</span>
+    <span class="pill">⚔️ Middle Ages</span>
+    <span class="pill">🎨 Renaissance</span>
+    <span class="pill">✝️ Reformation</span>
+    <span class="pill">🌍 Exploration</span>
+  </div>
+  <button class="start-btn" onclick="startGame()">START GAME</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen" class="screen">
+  <div class="top-bar">
+    <div class="q-counter" id="q-counter">Q 1 / 25</div>
+    <div class="timer-wrap">
+      <svg class="timer-svg" width="70" height="70" viewBox="0 0 70 70">
+        <circle class="timer-bg" cx="35" cy="35" r="30"/>
+        <circle class="timer-arc" id="timer-arc" cx="35" cy="35" r="30"
+          stroke-dasharray="188.5" stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-text" id="timer-text">20</div>
+    </div>
+    <div class="score-badge">⭐ <span id="score-display">0</span></div>
+  </div>
+
+  <div class="progress-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+  <div class="cat-tag" id="cat-tag">CATEGORY</div>
+  <div class="question-box" id="question-box">Question text</div>
+
+  <div class="answers" id="answers-grid">
+    <button class="ans-btn btn-red"    onclick="choose(0)"><span class="shape">▲</span><span id="a0"></span></button>
+    <button class="ans-btn btn-blue"   onclick="choose(1)"><span class="shape">◆</span><span id="a1"></span></button>
+    <button class="ans-btn btn-yellow" onclick="choose(2)"><span class="shape">●</span><span id="a2"></span></button>
+    <button class="ans-btn btn-green"  onclick="choose(3)"><span class="shape">■</span><span id="a3"></span></button>
+  </div>
+  <button class="next-btn" id="next-btn" onclick="nextQuestion()">Next ➜</button>
+</div>
+
+<!-- END SCREEN -->
+<div id="end-screen" class="screen">
+  <div class="stars" id="stars">⭐⭐⭐</div>
+  <h2 id="end-title">Great Job!</h2>
+  <div class="final-score" id="final-score">0 / 25</div>
+  <div class="grade-label" id="grade-label">Keep studying!</div>
+  <div class="results-grid" id="results-grid"></div>
+  <button class="restart-btn" onclick="restartGame()">🔄 Play Again</button>
+</div>
+
+<div class="feedback" id="feedback"></div>
+
+<script>
+const QUESTIONS = [
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "Charles Martel is best remembered for his role in which pivotal battle that halted the Muslim advance into Western Europe?",
+    opts: ["Battle of Hastings", "Battle of Tours", "Battle of Agincourt", "Battle of Lepanto"],
+    ans: 1
+  },
+  {
+    cat: "📅 TIMELINE",
+    q: "Which period comes FIRST chronologically?",
+    opts: ["The Renaissance", "The Reformation", "The High Middle Ages", "The Age of Exploration"],
+    ans: 2
+  },
+  {
+    cat: "☪️ ISLAM",
+    q: "After Muhammad's death, the Muslim community split over the question of succession. What was the name of the two main groups that formed?",
+    opts: ["Sunni and Shi'ite", "Sufi and Shari'a", "Ottoman and Abbasid", "Sunni and Sufi"],
+    ans: 0
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "The baptism of Clovis, king of the Franks, was historically significant because it:",
+    opts: ["Ended the Roman Empire in the West", "Sparked the First Crusade", "Helped spread Christianity among the Germanic peoples of Western Europe", "United the Eastern and Western Church"],
+    ans: 2
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "Which document, signed in 1215, established that even the King of England was subject to the law?",
+    opts: ["The Edict of Milan", "The Peace of Westphalia", "The Magna Carta", "The Concordat of Worms"],
+    ans: 2
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "What was the primary role of guilds in the growth of medieval cities?",
+    opts: ["They trained knights for the Crusades", "They regulated trade and crafts, helping cities prosper", "They collected taxes for the Church", "They translated classical texts from Arabic"],
+    ans: 1
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "The Great Schism of 1054 split Christianity into which two branches?",
+    opts: ["Catholic and Protestant", "Roman Catholic and Eastern Orthodox", "Anglican and Lutheran", "Dominican and Franciscan"],
+    ans: 1
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "St. Catherine of Siena is especially known for convincing Pope Gregory XI to:",
+    opts: ["Declare the First Crusade", "End the Avignon Papacy and return to Rome", "Create the Inquisition", "Condemn Martin Luther's writings"],
+    ans: 1
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "The Hundred Years' War was fought between which two kingdoms?",
+    opts: ["England and the Holy Roman Empire", "France and Spain", "England and France", "The Papal States and France"],
+    ans: 2
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "Which famous medieval tapestry depicts the Norman Conquest of England?",
+    opts: ["The Ghent Altarpiece", "The Bayeux Tapestry", "The Unicorn Tapestries", "The Sistine Ceiling"],
+    ans: 1
+  },
+  {
+    cat: "🎨 RENAISSANCE",
+    q: "Who is credited as the 'father of Renaissance humanism,' whose love of classical Greek and Latin texts inspired generations of scholars?",
+    opts: ["Dante Alighieri", "Niccolò Machiavelli", "Petrarch", "Erasmus"],
+    ans: 2
+  },
+  {
+    cat: "🎨 RENAISSANCE",
+    q: "Fra Angelico was a Renaissance artist who was also a member of which religious order?",
+    opts: ["Franciscan", "Benedictine", "Jesuit", "Dominican"],
+    ans: 3
+  },
+  {
+    cat: "🎨 RENAISSANCE",
+    q: "Niccolò Machiavelli's book 'The Prince' argued that rulers should:",
+    opts: ["Follow the teachings of the Church above all else", "Share power equally with the nobility", "Use any means necessary to maintain political power", "Abolish feudalism and establish republics"],
+    ans: 2
+  },
+  {
+    cat: "🎨 RENAISSANCE",
+    q: "Which of the following best describes Renaissance humanism?",
+    opts: ["A rejection of God and religion", "A focus on classical learning, human dignity, and individual achievement", "A movement to reform the Catholic Church", "A style of painting that rejected perspective"],
+    ans: 1
+  },
+  {
+    cat: "✝️ REFORMATION",
+    q: "What practice of the Church most directly provoked Martin Luther to write his 95 Theses in 1517?",
+    opts: ["The election of a corrupt pope", "The sale of indulgences", "The Avignon Papacy", "The burning of Jan Hus"],
+    ans: 1
+  },
+  {
+    cat: "✝️ REFORMATION",
+    q: "Why did Henry VIII of England break with the Roman Catholic Church?",
+    opts: ["He agreed with Luther's theology", "The Pope refused to grant him an annulment of his marriage to Catherine of Aragon", "He wanted to seize church lands to fund wars with France", "The Church excommunicated him for heresy"],
+    ans: 1
+  },
+  {
+    cat: "✝️ REFORMATION",
+    q: "St. Thomas More was executed by Henry VIII because he refused to:",
+    opts: ["Convert to Lutheranism", "Support the Spanish Armada", "Sign the Oath of Supremacy recognizing Henry as head of the Church of England", "Condemn William Tyndale's Bible translation"],
+    ans: 2
+  },
+  {
+    cat: "✝️ REFORMATION",
+    q: "The Council of Trent (1545–1563) was the Catholic Church's formal response to which challenge?",
+    opts: ["The Great Schism", "The Crusades", "The Protestant Reformation", "The Investiture Controversy"],
+    ans: 2
+  },
+  {
+    cat: "✝️ REFORMATION",
+    q: "Which religious order, founded by St. Ignatius of Loyola, played a central role in the Catholic Reformation and in missionary work around the world?",
+    opts: ["Franciscans", "Dominicans", "Jesuits", "Cistercians"],
+    ans: 2
+  },
+  {
+    cat: "🌍 EXPLORATION",
+    q: "Which Native American confederacy is known for having a democratic governmental structure that later influenced the framers of the United States Constitution?",
+    opts: ["The Aztec Empire", "The Haudenosaunee (Iroquois) Confederacy", "The Maya", "The Wendat (Huron)"],
+    ans: 1
+  },
+  {
+    cat: "🌍 EXPLORATION",
+    q: "The 'Triangle Trade' connected three regions. Which of the following correctly identifies those regions?",
+    opts: ["Europe, India, and China", "Europe, West Africa, and the Americas", "Spain, Portugal, and the Caribbean", "England, France, and North Africa"],
+    ans: 1
+  },
+  {
+    cat: "🌍 EXPLORATION",
+    q: "Bartolomeo de las Casas is remembered in history primarily as:",
+    opts: ["A Spanish conquistador who conquered the Aztecs", "A Portuguese navigator who mapped the coast of Africa", "A Spanish Dominican friar who defended the rights of Native Americans against colonial abuses", "A Jesuit missionary martyred by the Iroquois"],
+    ans: 2
+  },
+  {
+    cat: "🌍 EXPLORATION",
+    q: "Francisco Pizarro's conquest in the 1530s brought down which South American empire?",
+    opts: ["The Aztec Empire", "The Maya", "The Olmec", "The Inca Empire"],
+    ans: 3
+  },
+  {
+    cat: "📅 TIMELINE",
+    q: "The Battle of the Plains of Abraham (1759) took place during which time period and had what effect on North America?",
+    opts: ["Reformation; it ended Spanish power in the Caribbean", "Age of Exploration; it ended French colonial power in North America", "High Middle Ages; it began British colonization of Canada", "Renaissance; it established the French Empire in Louisiana"],
+    ans: 1
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "On Christmas Day 800 AD, Charlemagne was crowned Emperor of the Romans by whom, creating a unified Christian empire in the West?",
+    opts: ["Pope Gregory the Great", "The Byzantine Emperor", "Pope Leo III", "Alcuin of York"],
+    ans: 2
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "Which Norse explorer is credited as the first European to reach North America, at the settlement now known as L'Anse aux Meadows?",
+    opts: ["Eric the Red", "Harald Bluetooth", "King Forkbeard", "Leif Erikson"],
+    ans: 3
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "The Rule of St. Benedict organized monastic life around two central pillars, summed up in the Latin phrase 'ora et labora.' What does this mean?",
+    opts: ["Fast and pray", "Study and silence", "Prayer and work", "Poverty and obedience"],
+    ans: 2
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "St. Joan of Arc's greatest military achievement was lifting the English siege of which French city in 1429, turning the tide of the Hundred Years' War?",
+    opts: ["Paris", "Poitiers", "Agincourt", "Orléans"],
+    ans: 3
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "The Black Death, which killed roughly one-third of Europe's population, was a bacterial disease primarily spread by:",
+    opts: ["Contaminated drinking water", "Fleas carried by rats", "Direct contact with infected corpses", "Miasma from swamps"],
+    ans: 1
+  },
+  {
+    cat: "⚔️ MIDDLE AGES",
+    q: "William the Conqueror commissioned the Domesday Book in 1086. What was it?",
+    opts: ["A code of feudal laws for English nobles", "A chronicle of the Norman Conquest of England", "A complete survey of all lands and livestock in England", "A charter of rights limiting the king's power"],
+    ans: 2
+  }
+];
+
+let currentQ = 0;
+let score = 0;
+let timeLeft = 20;
+let timerInterval = null;
+let answered = false;
+let results = [];
+let shuffledQuestions = [];
+let currentAns = 0;
+let currentOpts = [];
+const CIRCUMFERENCE = 2 * Math.PI * 30; // 188.5
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startGame() {
+  currentQ = 0; score = 0; answered = false; results = [];
+  shuffledQuestions = shuffle(QUESTIONS);
+  showScreen('game-screen');
+  loadQuestion();
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function loadQuestion() {
+  const q = shuffledQuestions[currentQ];
+  answered = false;
+  document.getElementById('next-btn').classList.remove('visible');
+
+  // Shuffle options, track correct answer by value
+  const correctText = q.opts[q.ans];
+  currentOpts = shuffle(q.opts);
+  currentAns = currentOpts.indexOf(correctText);
+
+  document.getElementById('q-counter').textContent = `Q ${currentQ + 1} / ${shuffledQuestions.length}`;
+  document.getElementById('score-display').textContent = score;
+  document.getElementById('cat-tag').textContent = q.cat;
+  document.getElementById('question-box').textContent = q.q;
+  document.getElementById('progress-bar').style.width = `${(currentQ / shuffledQuestions.length) * 100}%`;
+
+  const btns = document.querySelectorAll('.ans-btn');
+  btns.forEach((btn, i) => {
+    btn.className = btn.className.replace(/correct|wrong|highlight/g, '').trim();
+    btn.disabled = false;
+    document.getElementById(`a${i}`).textContent = currentOpts[i];
+  });
+
+  // Reset timer
+  timeLeft = 20;
+  updateTimerArc();
+  document.getElementById('timer-text').textContent = timeLeft;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(tick, 1000);
+}
+
+function tick() {
+  timeLeft--;
+  document.getElementById('timer-text').textContent = timeLeft;
+  updateTimerArc();
+  if (timeLeft <= 5) document.getElementById('timer-arc').style.stroke = '#ef4444';
+  if (timeLeft <= 0) {
+    clearInterval(timerInterval);
+    if (!answered) timeUp();
+  }
+}
+
+function updateTimerArc() {
+  const offset = CIRCUMFERENCE * (1 - timeLeft / 20);
+  document.getElementById('timer-arc').style.strokeDashoffset = offset;
+  if (timeLeft > 5) document.getElementById('timer-arc').style.stroke = '#a78bfa';
+}
+
+function showNextBtn() {
+  document.getElementById('next-btn').classList.add('visible');
+}
+
+function timeUp() {
+  answered = true;
+  revealAnswer(-1);
+  results.push({ q: shuffledQuestions[currentQ].q, correct: false, ans: currentOpts[currentAns] });
+  showFeedback(false);
+  showNextBtn();
+}
+
+function choose(idx) {
+  if (answered) return;
+  answered = true;
+  clearInterval(timerInterval);
+
+  const correct = idx === currentAns;
+  if (correct) {
+    const bonus = Math.round((timeLeft / 20) * 800) + 200;
+    score += bonus;
+  }
+  revealAnswer(idx);
+  results.push({ q: shuffledQuestions[currentQ].q, correct, ans: currentOpts[currentAns] });
+  showFeedback(correct);
+  showNextBtn();
+}
+
+function revealAnswer(chosen) {
+  const btns = document.querySelectorAll('.ans-btn');
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === currentAns) btn.classList.add('correct');
+    else if (i === chosen) btn.classList.add('wrong');
+    else btn.classList.add('wrong');
+  });
+}
+
+function showFeedback(correct) {
+  const fb = document.getElementById('feedback');
+  fb.textContent = correct ? '✅' : '❌';
+  fb.classList.add('show');
+  setTimeout(() => fb.classList.remove('show'), 800);
+}
+
+function nextQuestion() {
+  currentQ++;
+  if (currentQ >= shuffledQuestions.length) {
+    endGame();
+  } else {
+    document.getElementById('timer-arc').style.stroke = '#a78bfa';
+    loadQuestion();
+  }
+}
+
+function endGame() {
+  showScreen('end-screen');
+  const correctCount = results.filter(r => r.correct).length;
+
+  document.getElementById('final-score').textContent = `${correctCount} / ${shuffledQuestions.length}`;
+  document.getElementById('score-display').textContent = score;
+
+  let stars, title, label;
+  if (correctCount >= 28) { stars = '⭐⭐⭐'; title = '🏆 Historian!'; label = 'Outstanding — you\'re ready for the final!'; }
+  else if (correctCount >= 22) { stars = '⭐⭐✨'; title = '🎉 Well Done!'; label = 'Solid work — review a few more topics!'; }
+  else if (correctCount >= 15) { stars = '⭐✨'; title = '📚 Keep Going!'; label = 'Good effort — keep studying those timelines!'; }
+  else { stars = '✨'; title = '📖 Study Up!'; label = 'Review your notes and try again!'; }
+
+  document.getElementById('stars').textContent = stars;
+  document.getElementById('end-title').textContent = title;
+  document.getElementById('grade-label').textContent = label;
+
+  // Results list
+  const grid = document.getElementById('results-grid');
+  grid.innerHTML = '';
+  results.forEach((r, i) => {
+    const div = document.createElement('div');
+    div.className = 'result-row';
+    div.innerHTML = `<span class="ri">${r.correct ? '✅' : '❌'}</span>
+      <span class="rq">Q${i+1}: ${r.q.length > 70 ? r.q.slice(0,70)+'…' : r.q}</span>
+      <span class="ra">${r.correct ? 'Correct' : r.ans}</span>`;
+    grid.appendChild(div);
+  });
+}
+
+function restartGame() {
+  startGame();
+}
+</script>
+</body>
+</html>
